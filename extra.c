@@ -34,7 +34,7 @@ int conv2D(float* in, float* out, int data_size_X, int data_size_Y,
        }
     }
 
-    // main convolution loop
+    // main convolution loop: walk by 32
     
     #pragma omp parallel
     {
@@ -96,7 +96,7 @@ int conv2D(float* in, float* out, int data_size_X, int data_size_Y,
                                                 s_h = _mm_setzero_ps();
                 }
 
-                // secondary loop
+                // secondary loop stride by 8 to catch tail of main loop
 
             for(; x < data_size_X/8*8; x+=8){ // the x coordinate of theoutput location we're focusing on
                                                 for(j = -kern_cent_Y; j <= kern_cent_Y; ++j){ // kernel unflipped x coordinate
@@ -124,7 +124,7 @@ int conv2D(float* in, float* out, int data_size_X, int data_size_Y,
                                                 s_b = _mm_setzero_ps();
                 }
 
-                // tertiary loop
+                // tertiary loop: stride by 4 to catch tail of secondary loop
         for(; x < data_size_X/4*4; x+=4){ // the x coordinate of theoutput location we're focusing on
                                                 for(j = -kern_cent_Y; j <= kern_cent_Y; ++j){ // kernel unflipped x coordinate
                                                 big = x + kern_cent_X + (y + kern_cent_Y+j) * small;
@@ -145,7 +145,7 @@ int conv2D(float* in, float* out, int data_size_X, int data_size_Y,
 
                                                 s_a = _mm_setzero_ps();
                                 }
-
+                // quaternary loop: stride by 1 to catch tail of tertiary loop
                 for(;x < data_size_X; ++x){ // the x coordinate of the output location we're focusing on
                         out_index = out+(x+y*data_size_X);
                         for(j = -kern_cent_Y; j <= kern_cent_Y; ++j){ // kernel unflipped y coordinate
