@@ -16,7 +16,7 @@ int conv2D(float* in, float* out, int data_size_X, int data_size_Y,
                 int small = data_size_X + (2 * kern_cent_X);
                 int small2 = data_size_Y+(2*kern_cent_Y);
 
-                __m128 kernel_vector,padded_vector,product_vector, v_a, v_b, v_c, v_d, v_e, v_f, v_g, v_h, s_a, s_b, s_c, s_d, s_e, s_f, s_g, s_h;
+                __m128 kernel_vector,padded_vector,product_vector, v_a, v_b, v_c, v_d, s_a, s_b, s_c, s_d;
                 __m128 sum_vector = _mm_setzero_ps();
 
     //matrix padding
@@ -38,23 +38,19 @@ int conv2D(float* in, float* out, int data_size_X, int data_size_Y,
     
     #pragma omp parallel
     {
-        #pragma omp for private(x,y,i,j,big,out_index,v_a,v_b,v_c,v_d,v_e,v_f,v_g,v_h,s_a,s_b,s_c,s_d,s_e,s_f,s_g,s_h,kernel_vector)    
-        for(y = 0; y < data_size_Y; ++y){ // the y coordinate of the output location we're focusing on
-                for(x = 0; x < data_size_X/32*32; x+=32){ // the x coordinate of theoutput location we're focusing on
+        #pragma omp for private(x,y,i,j,big,out_index,v_a,v_b,v_c,v_d,s_a,s_b,s_c,s_d,kernel_vector)    
+        for(y = 0; y < data_size_Y; ++y){ // the x coordinate of the output location we're focusing on
+                for(x = 0; x < data_size_X/16*16; x+=16){ // the y coordinate of theoutput location we're focusing on
                                                 for(j = -kern_cent_Y; j <= kern_cent_Y; ++j){ // kernel unflipped x coordinate
                                                                 big = x + kern_cent_X + (y + kern_cent_Y+j) * small;
                                                                 out_index = out + (x + y*data_size_X);
                                 for(i = -kern_cent_X; i <= kern_cent_X; ++i){ // kernel unflipped y coordinate
-                                        //Kernel is now flipped
+                                        //Note that the kernel is flipped
 
                                                                                 v_a = _mm_loadu_ps((const float*)(i + padded + big));
                                                                                 v_b = _mm_loadu_ps((const float*)(i + padded + big + 4));
                                                                                 v_c = _mm_loadu_ps((const float*)(i + padded + big + 8));
                                                                                 v_d = _mm_loadu_ps((const float*)(i + padded + big + 12));
-                                                                                v_e = _mm_loadu_ps((const float*)(i + padded + big + 16));
-                                                                                v_f = _mm_loadu_ps((const float*)(i + padded + big + 20));
-                                                                                v_g = _mm_loadu_ps((const float*)(i + padded + big + 24));
-                                                                                v_h = _mm_loadu_ps((const float*)(i + padded + big + 28));
 
                                                                                 kernel_vector = _mm_set1_ps(kernel[(kern_cent_X-i)+(kern_cent_Y-j)*kernel_x]);
 
@@ -62,75 +58,59 @@ int conv2D(float* in, float* out, int data_size_X, int data_size_Y,
                                                                                 v_b = _mm_mul_ps(v_b,kernel_vector);
                                                                                 v_c = _mm_mul_ps(v_c,kernel_vector);
                                                                                 v_d = _mm_mul_ps(v_d,kernel_vector);
-                                                                                v_e = _mm_mul_ps(v_e,kernel_vector);
-                                                                                v_f = _mm_mul_ps(v_f,kernel_vector);
-                                                                                v_g = _mm_mul_ps(v_g,kernel_vector);
-                                                                                v_h = _mm_mul_ps(v_h,kernel_vector);
 
                                                                                 s_a = _mm_add_ps(s_a,v_a);
                                                                                 s_b = _mm_add_ps(s_b,v_b);
                                                                                 s_c = _mm_add_ps(s_c,v_c);
                                                                                 s_d = _mm_add_ps(s_d,v_d);
-                                                                                s_e = _mm_add_ps(s_e,v_e);
-                                                                                s_f = _mm_add_ps(s_f,v_f);
-                                                                                s_g = _mm_add_ps(s_g,v_g);
-                                                                                s_h = _mm_add_ps(s_h,v_h);
                                                                 }
                         }
                                                 _mm_storeu_ps((float*)(out_index), s_a);
                                                 _mm_storeu_ps((float*)(out_index+4), s_b);
                                                 _mm_storeu_ps((float*)(out_index+8), s_c);
                                                 _mm_storeu_ps((float*)(out_index+12), s_d);
-                                                _mm_storeu_ps((float*)(out_index+16), s_e);
-                                                _mm_storeu_ps((float*)(out_index+20), s_f);
-                                                _mm_storeu_ps((float*)(out_index+24), s_g);
-                                                _mm_storeu_ps((float*)(out_index+28), s_h);
 
                                                 s_a = _mm_setzero_ps();
                                                 s_b = _mm_setzero_ps();
                                                 s_c = _mm_setzero_ps();
                                                 s_d = _mm_setzero_ps();
-                                                s_e = _mm_setzero_ps();
-                                                s_f = _mm_setzero_ps();
-                                                s_g = _mm_setzero_ps();
-                                                s_h = _mm_setzero_ps();
                 }
 
                 // secondary loop
 
-            for(; x < data_size_X/8*8; x+=8){ // the x coordinate of theoutput location we're focusing on
-                                                for(j = -kern_cent_Y; j <= kern_cent_Y; ++j){ // kernel unflipped x coordinate
-                                                big = x + kern_cent_X + (y + kern_cent_Y+j) * small;
-                                                out_index = out + (x + y*data_size_X);
-                               for(i = -kern_cent_X; i <= kern_cent_X; ++i){ // kernel unflipped y coordinate
-                                        //kernel is now flipped
-
-                                                                                v_a = _mm_loadu_ps((const float*)(i + padded + big));
-                                                                                v_b = _mm_loadu_ps((const float*)(i + padded + big + 4));
-
-                                                                                kernel_vector = _mm_set1_ps(kernel[(kern_cent_X-i)+(kern_cent_Y-j)*kernel_x]);
-
-                                                                                v_a = _mm_mul_ps(v_a,kernel_vector);
-                                                                                v_b = _mm_mul_ps(v_b,kernel_vector);
-
-                                                                                s_a = _mm_add_ps(s_a,v_a);
-                                                                                s_b = _mm_add_ps(s_b,v_b);
-                                                                }
-                        }
-                                                _mm_storeu_ps((float*)(out_index), s_a);
-                                                _mm_storeu_ps((float*)(out_index+4), s_b);
-
-                                                s_a = _mm_setzero_ps();
-                                                s_b = _mm_setzero_ps();
-                }
+         //   for(; x < data_size_X/8*8; x+=8){ // the y coordinate of theoutput location we're focusing on
+          //                                      for(j = -kern_cent_Y; j <= kern_cent_Y; ++j){ // kernel unflipped x coordinate
+          //                                      big = x + kern_cent_X + (y + kern_cent_Y+j) * small;
+          //                                      out_index = out + (x + y*data_size_X);
+          //                     for(i = -kern_cent_X; i <= kern_cent_X; ++i){ // kernel unflipped y coordinate
+          //                              //Note that the kernel is flipped
+//
+//                                                                                v_a = _mm_loadu_ps((const float*)(i + padded + big));
+//                                                                                v_b = _mm_loadu_ps((const float*)(i + padded + big + 4));
+//
+ //                                                                               kernel_vector = _mm_set1_ps(kernel[(kern_cent_X-i)+(kern_cent_Y-j)*kernel_x]);
+//
+ //                                                                               v_a = _mm_mul_ps(v_a,kernel_vector);
+  //                                                                              v_b = _mm_mul_ps(v_b,kernel_vector);
+//
+//                                                                                s_a = _mm_add_ps(s_a,v_a);
+ //                                                                               s_b = _mm_add_ps(s_b,v_b);
+  //                                                              }
+   //                     }
+    //                                            _mm_storeu_ps((float*)(out_index), s_a);
+     //                                           _mm_storeu_ps((float*)(out_index+4), s_b);
+//
+ //                                               s_a = _mm_setzero_ps();
+  //                                              s_b = _mm_setzero_ps();
+   //             }
 
                 // tertiary loop
-        for(; x < data_size_X/4*4; x+=4){ // the x coordinate of theoutput location we're focusing on
+        for(; x < data_size_X/4*4; x+=4){ // the y coordinate of theoutput location we're focusing on
                                                 for(j = -kern_cent_Y; j <= kern_cent_Y; ++j){ // kernel unflipped x coordinate
                                                 big = x + kern_cent_X + (y + kern_cent_Y+j) * small;
                                                 out_index = out + (x + y*data_size_X);
                                 for(i = -kern_cent_X; i <= kern_cent_X; ++i){ // kernel unflipped y coordinate
-                                        //kernel is now flipped
+                                        //Note that the kernel is flipped
 
                                                                                 v_a = _mm_loadu_ps((const float*)(i + padded + big));
 
